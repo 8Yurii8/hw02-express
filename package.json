@@ -13,8 +13,10 @@
     "@decorators/express": "^2.9.4",
     "cors": "2.8.5",
     "cross-env": "7.0.3",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "joi": "^17.9.2",
+    "mongoose": "^7.4.1",
     "morgan": "1.10.0",
     "nanoid": "^4.0.2"
   },

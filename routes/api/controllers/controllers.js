@@ -1,16 +1,15 @@
-import contactsService from "../../../models/contacts.js";
+import { Contact } from "../../../models/contact.js";
 import HttpError from "../../../helper/HttpError.js";
-import { contactAddShema } from "../../../schemas/contactAddShema.js";
 import { ctrlWrapper } from "../decorators/ctrlWrapper.js";
 
 const listContacts = async (req, res, next) => {
-  const result = await contactsService.listContacts();
+  const result = await Contact.find();
   res.json(result);
 };
 
 const getContactById = async (req, res, next) => {
   const { id } = req.params;
-  const result = await contactsService.getContactById(id);
+  const result = await Contact.findById(id);
   if (!result) {
     throw HttpError(404, `Contact with id=${id} not found`);
   }
@@ -18,17 +17,13 @@ const getContactById = async (req, res, next) => {
 };
 
 const addContact = async (req, res, next) => {
-  const { error } = contactAddShema.validate(req.body);
-  if (error) {
-    throw HttpError(400, "message: missing required name field");
-  }
-  const result = await contactsService.addContact(req.body);
+  const result = await Contact.create(req.body);
   res.status(201).json(result);
 };
 
 const removeContact = async (req, res, next) => {
   const { id } = req.params;
-  const result = await contactsService.removeContact(id);
+  const result = await Contact.findByIdAndDelete(id);
   if (!result) {
     throw HttpError(404, { message: "Not found" });
   }
@@ -36,12 +31,16 @@ const removeContact = async (req, res, next) => {
 };
 
 const updateContact = async (req, res, next) => {
-  const { error } = contactAddShema.validate(req.body);
-  if (error) {
-    throw HttpError(400, { message: "missing fields" });
-  }
   const { id } = req.params;
-  const result = await contactsService.updateContactById(id, req.body);
+  const result = await Contact.findByIdAndUpdate(id, req.body, { new: true });
+  if (!result) {
+    throw HttpError(404, { message: "Not found" });
+  }
+  res.json(result);
+};
+const updateFavorite = async (req, res, next) => {
+  const { id } = req.params;
+  const result = await Contact.findByIdAndUpdate(id, req.body, { new: true });
   if (!result) {
     throw HttpError(404, { message: "Not found" });
   }
@@ -54,4 +53,5 @@ export default {
   addContact: ctrlWrapper(addContact),
   removeContact: ctrlWrapper(removeContact),
   updateContact: ctrlWrapper(updateContact),
+  updateFavorite: ctrlWrapper(updateFavorite),
 };
