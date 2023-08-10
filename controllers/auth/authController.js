@@ -4,7 +4,13 @@ import { ctrlWrapper } from "../../routes/api/decorators/ctrlWrapper.js";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import gravatar from "gravatar";
+import Jimp from "jimp";
+import fs from "fs/promises"; // Додано імпорт fs.promises
+import path from "path";
 const { JWT_SECRET } = process.env;
+
+const AVATARS_PATH = path.join("public", "avatars"); // Шлях до папки з аватарками
 
 const register = async (req, res) => {
   const { password, email } = req.body;
@@ -12,15 +18,35 @@ const register = async (req, res) => {
   if (user) {
     throw HttpError(409, "Email in use");
   }
-  const hashPassword = await bcrypt.hash(password, 10);
 
-  const newUser = await User.create({ ...req.body, password: hashPassword });
+  const hashPassword = await bcrypt.hash(password, 10);
+  const avatarURL = gravatar.url(email, { s: "200", r: "pg", d: "mm" });
+
+  if (req.file) {
+    const avatar = await Jimp.read(req.file.path);
+    await avatar.resize(250, 250);
+
+    const fileName = `${Date.now()}-${req.file.originalname}`;
+    const newPath = path.join(AVATARS_PATH, fileName);
+
+    await avatar.writeAsync(newPath);
+    req.file.path = newPath;
+  }
+
+  const newUser = await User.create({
+    ...req.body,
+    password: hashPassword,
+    avatarURL: req.file
+      ? `/avatars/${path.basename(req.file.path)}`
+      : avatarURL,
+  });
+
   res.status(201).json({
     name: newUser.name,
     email: newUser.email,
+    avatarURL: newUser.avatarURL,
   });
 };
-
 const login = async (req, res) => {
   const { password, email } = req.body;
   const user = await User.findOne({ email });
@@ -59,14 +85,48 @@ const updateSubscription = async (req, res) => {
   }
   res.json("update successfully");
 };
+const updateAvatar = async (req, res) => {
+  const { _id } = req.user;
+
+  if (!req.file) {
+    throw HttpError(400, "Avatar file missing");
+  }
+
+  const avatar = await Jimp.read(req.file.path);
+  await avatar.resize(250, 250);
+
+  const fileName = `${Date.now()}-${req.file.originalname}`;
+  const newPath = path.join(AVATARS_PATH, fileName);
+
+  await avatar.writeAsync(newPath);
+  req.file.path = newPath;
+
+  try {
+    const userAvatar = await User.findById(_id).select("avatarURL");
+
+    if (userAvatar.avatarURL) {
+      const avatarPath = path.join(
+        AVATARS_PATH,
+        path.basename(userAvatar.avatarURL)
+      );
+      await fs.unlink(avatarPath);
+    }
+
+    await User.findByIdAndUpdate(_id, { avatarURL: `/avatars/${fileName}` });
+  } catch (error) {
+    throw HttpError(500, "Avatar update failed");
+  }
+
+  const updatedUser = await User.findById(_id).select("avatarURL");
+
+  res.status(200).json({ avatarURL: updatedUser.avatarURL });
+};
+
 export default {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
   getCurren: ctrlWrapper(getCurren),
   signout: ctrlWrapper(signout),
   updateSubscription: ctrlWrapper(updateSubscription),
+  updateAvatar: ctrlWrapper(updateAvatar),
 };
-
-// res.status(201).json({
-//   message: "update successfully",
-// });
