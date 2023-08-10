@@ -11,6 +11,12 @@ authRoter.post(
   validateBody(userShemas.userRegisterShema),
   authController.register
 );
+authRoter.get("/verify/:verificationToken", authController.verify);
+authRoter.post(
+  "/verify",
+  validateBody(userShemas.userEmailShema),
+  authController.resendVerifyEmail
+);
 authRoter.post(
   "/login",
   validateBody(userShemas.userRegisterShema),
